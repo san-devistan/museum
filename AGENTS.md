@@ -1,7 +1,7 @@
 # Repository Guide
 
-A pnpm monorepo for `name-of-project` (`<project-name>` below). Follow the
-patterns already here before introducing new ones.
+A pnpm monorepo for `museum`. Follow the patterns already here before
+introducing new ones.
 
 ## How It Fits Together
 
@@ -11,30 +11,24 @@ patterns already here before introducing new ones.
   provider integrations added as Convex components.
 - `apps/web`: TanStack Start app that uses `packages/ui` components and tokens
   plus `packages/backend`.
-- `apps/mobile`: Expo app that uses `packages/ui` tokens, PanelUI components,
-  and `packages/backend`.
-- `scripts`: repo tooling such as design-system sync and the quality gate.
+- `scripts`: repo tooling such as the quality gate.
 
-Logic belongs in the backend; apps focus on presentation. Design starts in
-`packages/ui` and flows to both apps. Each workspace has its own `AGENTS.md`
-with the details.
+Logic belongs in the backend; the web app focuses on presentation. Design
+starts in `packages/ui` and flows to the web app. Each workspace has its own
+`AGENTS.md` with the details.
 
 ## Local Development
 
-Dev servers keep stable URLs:
+The web dev server keeps a stable URL: `https://museum.localhost`.
 
-- Web: `https://<project-name>.localhost`
-- Mobile: `https://mobile.<project-name>.localhost`
-
-Logs live in the attached Zellij session whose name contains `<project-name>`.
+Logs live in the attached Zellij session whose name contains `museum`.
 
 ## Providers and Tools
 
-External services (Convex, Vercel, Stripe, Better Auth, shadcn, App Store
-Connect) are reached through their MCP when configured (see
-`.codex/config.toml`), otherwise through their CLI if installed. Check what is
-available rather than assuming it. If the MCP or CLI is available but not
-authenticated, authenticate it before using it.
+External services (Convex, Vercel, Stripe, Better Auth, shadcn) are reached
+through their MCP when configured (see `.codex/config.toml`), otherwise through
+their CLI if installed. Check what is available rather than assuming it. If the
+MCP or CLI is available but not authenticated, authenticate it before using it.
 
 ## Module Layout
 
