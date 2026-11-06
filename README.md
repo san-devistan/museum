@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart LR
-  Web["Web App<br/>TanStack Start + Vercel"]
+  Web["Web App<br/>TanStack Start + Cloudflare Workers"]
   Backend["Backend<br/>Convex + Stripe<br/>Resend + Better Auth"]
   Tokens["Shared Tokens<br/>packages/ui"]
   WebUI["Web UI<br/>shadcn components"]
@@ -21,7 +21,16 @@ flowchart LR
 ## AI Setup
 
 - Skills are scoped under each workspace's `.agents/skills` directory.
-- Configured MCPs cover Convex, Better Auth, Stripe, shadcn, and Vercel.
+- Configured MCPs cover Convex, Better Auth, Stripe, shadcn, and Cloudflare.
+
+## Deploy
+
+The web app runs on Cloudflare Workers (`apps/web/wrangler.jsonc`), served at
+`https://museum.lcombaret.workers.dev`. Pushes to `main` build and deploy it
+through Workers Builds (root `apps/web`, no build variables: the museum doesn't
+use Convex yet). The photos and sounds ship in the build as static assets.
+`pnpm deploy:web` deploys from this machine instead
+(`pnpm --filter web exec wrangler login` once).
 
 ## Quality Gate
 

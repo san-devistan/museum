@@ -2,7 +2,8 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/oxanium";
-@import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource-variable/pixelify-sans";
+@import "./fonts.css";
 @import "./globals.css";
 
 @custom-variant dark (&:is(.dark *));

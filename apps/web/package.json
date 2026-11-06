@@ -7,10 +7,13 @@
     "dev": "portless run vite dev",
     "build": "vite build",
     "preview": "vite preview",
+    "deploy": "vite build && wrangler deploy",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@convex-dev/react-query": "^0.1.0",
+    "@react-three/drei": "^10.7.9",
+    "@react-three/fiber": "^9.8.2",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-query": "^5.104.0",
     "@tanstack/react-router": "^1.170.40",
@@ -23,21 +26,25 @@
     "effect": "4.0.0-rc.118",
     "lucide-react": "^1.49.0",
     "next-themes": "^0.4.6",
-    "nitro": "latest",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "tailwindcss": "^4.3.3",
+    "three": "^0.186.1",
     "ts-pattern": "^5.9.0",
     "usehooks-ts": "^3.1.1",
-    "vite-tsconfig-paths": "^5.1.4"
+    "vite-tsconfig-paths": "^5.1.4",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.65.0",
     "@types/node": "^25.9.8",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@types/three": "^0.186.0",
     "@vitejs/plugin-react": "^5.2.0",
     "typescript": "^5.9.3",
-    "vite": "^7.3.6"
+    "vite": "^7.3.6",
+    "wrangler": "^4.152.0"
   },
   "portless": {
     "name": "museum"

@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // The web app on Cloudflare Workers: TanStack Start's server renders the page; the client
+  // build (photos and sounds included) is served as static assets (public/_headers sets their caching).
+  "name": "museum",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  // TanStack Start's server entry, wrapped to serve the MP3s in byte ranges.
+  "main": "src/server.ts",
+  "assets": {
+    "binding": "ASSETS",
+    // Static assets ignore Range requests: the MP3s go through src/server.ts so the narration can seek.
+    "run_worker_first": ["/assets/*.mp3"],
+  },
+  // dollashashin.com (zone on this Cloudflare account) plus the workers.dev URL for previews.
+  "routes": [
+    { "pattern": "dollashashin.com", "custom_domain": true },
+    { "pattern": "www.dollashashin.com", "custom_domain": true },
+  ],
+  "workers_dev": true,
+  "observability": {
+    "enabled": true,
+  },
+}

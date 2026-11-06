@@ -4,11 +4,15 @@
   "private": true,
   "scripts": {
     "build": "turbo run build --filter=web",
+    "deploy:web": "pnpm --filter web run deploy",
     "dev": "turbo run dev --filter=web --filter=@workspace/backend",
     "fix": "bash scripts/fix.sh",
+    "narration": "node --env-file=.env.local scripts/narration/generate-narration.mts",
+    "sound-effects": "node --env-file=.env.local scripts/sound-effects/generate-sound-effects.mts",
     "update:deps": "pnpm update -r && pnpm peers check --lockfile-only"
   },
   "devDependencies": {
+    "@elevenlabs/elevenlabs-js": "^2.76.0",
     "@shadcn/lint": "^0.1.5",
     "oxfmt": "^0.48.0",
     "oxlint": "^1.86.0",

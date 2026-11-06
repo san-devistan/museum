@@ -5,7 +5,11 @@ import {
   Scripts,
   createRootRouteWithContext,
 } from "@tanstack/react-router"
+import cormorantGaramondFont from "@workspace/ui/fonts/cormorant-garamond.woff2?url"
+import dottedScriptFont from "@workspace/ui/fonts/dotted-script.woff2?url"
+import loraFont from "@workspace/ui/fonts/lora.woff2?url"
 import appCss from "@workspace/ui/globals.css?url"
+import { sceneTokens } from "@workspace/ui/lib/scene-tokens"
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
@@ -20,10 +24,25 @@ export const Route = createRootRouteWithContext<{
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "Museum",
+        title: "Dollashashin's Gallery",
+      },
+      {
+        name: "description",
+        content: "Step through the door and wander an immersive 3D gallery.",
+      },
+      {
+        name: "theme-color",
+        content: sceneTokens.color.sky,
       },
     ],
     links: [
+      ...[dottedScriptFont, loraFont, cormorantGaramondFont].map((href) => ({
+        rel: "preload",
+        href,
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous" as const,
+      })),
       {
         rel: "stylesheet",
         href: appCss,
@@ -41,7 +60,7 @@ export const Route = createRootRouteWithContext<{
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="fr" className="dark" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
