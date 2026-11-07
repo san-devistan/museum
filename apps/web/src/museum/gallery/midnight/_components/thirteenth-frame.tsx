@@ -3,6 +3,10 @@ import { laceFrameGeometry } from "@/museum/gallery/artwork/_lib/lace-frame"
 import { laceFrameMaterials } from "@/museum/gallery/artwork/_lib/lace-frame-materials"
 import { WallLabel } from "@/museum/gallery/label/wall-label"
 import {
+  hangKeptPortrait,
+  takeDownPortrait,
+} from "@/museum/gallery/midnight/_lib/frame-portrait"
+import {
   createFrameParts,
   disposeFrameParts,
   watchFrame,
@@ -14,8 +18,8 @@ import {
   framePlacement,
   keptVisitorLabel,
   labelPlacement,
+  nightName,
   thirteenthFrame,
-  tonight,
 } from "@/museum/gallery/midnight/_lib/thirteenth-frame"
 import { useStoryStore } from "@/museum/story/_lib/story-store"
 import { useFrame } from "@react-three/fiber"
@@ -31,7 +35,8 @@ const laceSpec = { id: "thirteenth-frame", seed: 13, ...lace }
 
 // The thirteenth frame by the front door: veiled lace, a mirror under the
 // veil that shows the room and never the visitor, and its card, which
-// rewrites itself when the house keeps the visitor.
+// rewrites itself when the house keeps the visitor. From then on it hangs
+// their portrait instead of the mirror.
 export function ThirteenthFrame({ isStill }: ThirteenthFrameProps) {
   const [parts] = useState(createFrameParts)
   const meshesRef = useRef<FrameMeshes>({
@@ -39,17 +44,33 @@ export function ThirteenthFrame({ isStill }: ThirteenthFrameProps) {
     veil: null,
     glass: null,
   })
-  const stepRef = useRef<FrameStep>({ camera: null, delta: 0, isStill })
-  const isKept = useStoryStore((state) => state.ending === "stay")
-  const [night] = useState(tonight)
-  const label = isKept ? keptVisitorLabel(night) : emptyFrameLabel
+  const stepRef = useRef<FrameStep>({
+    camera: null,
+    renderer: null,
+    delta: 0,
+    isStill,
+  })
+  const portrait = useStoryStore((state) => state.portrait)
+  const label = portrait
+    ? keptVisitorLabel(nightName(portrait.night))
+    : emptyFrameLabel
   const { mirror, veil } = parts
 
   useEffect(() => () => disposeFrameParts(parts), [parts])
 
-  useFrame(({ camera }, delta) => {
+  // A portrait kept on an earlier visit (the one just taken is already up).
+  useEffect(() => {
+    if (portrait === null) {
+      takeDownPortrait(parts.portrait)
+    } else if (parts.portrait.hung !== portrait) {
+      hangKeptPortrait(parts.portrait, portrait)
+    }
+  }, [parts, portrait])
+
+  useFrame(({ camera, gl }, delta) => {
     const step = stepRef.current
     step.camera = camera
+    step.renderer = gl
     step.delta = delta
     step.isStill = isStill
     watchFrame(parts, meshesRef.current, step)

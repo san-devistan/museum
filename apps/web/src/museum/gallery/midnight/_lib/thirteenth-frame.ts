@@ -81,9 +81,27 @@ const nightFormat = new Intl.DateTimeFormat("fr-FR", {
   year: "numeric",
 })
 
-// Tonight, in French: « 6 novembre 2026 ».
-export function tonight() {
-  return nightFormat.format(new Date())
+// The visitor's local date as the story keeps it: « 2026-11-07 ».
+export function nightKey(date: Date) {
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${date.getFullYear()}-${month}-${day}`
+}
+
+// A kept night, in French: « 7 novembre 2026 », « 1er novembre 2026 ».
+export function nightName(night: string) {
+  const [year = 0, month = 1, day = 1] = night.split("-").map(Number)
+  return nightFormat
+    .formatToParts(new Date(year, month - 1, day))
+    .map((part) =>
+      part.type === "day" && part.value === "1" ? "1er" : part.value
+    )
+    .join("")
+}
+
+// How the house signs the portrait it keeps, by hand.
+export function portraitSignature(night: string) {
+  return `Minuit, le ${nightName(night)}`
 }
 
 export function keptVisitorCard(night: string) {

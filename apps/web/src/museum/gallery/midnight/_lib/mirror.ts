@@ -1,3 +1,5 @@
+import { manorTime } from "@/museum/gallery/_lib/manor-clock"
+import { mirrorMistChunk } from "@/museum/gallery/midnight/_lib/mirror-mist"
 import { mirrorTexture } from "@/museum/gallery/props/vanity/_lib/mirror-texture"
 import { sceneTokens } from "@workspace/ui/lib/scene-tokens"
 import {
@@ -45,21 +47,21 @@ uniform sampler2D tDiffuse;
 uniform sampler2D foxing;
 uniform float silverLuma;
 uniform float hold;
+uniform float manorTime;
 varying vec4 vUv;
 varying vec2 vPlane;
 
 #include <logdepthbuf_pars_fragment>
+${mirrorMistChunk}
 
 void main() {
   #include <logdepthbuf_fragment>
   vec3 room = texture2DProj(tDiffuse, vUv).rgb;
   vec3 aged = texture2D(foxing, vPlane).rgb;
   float silver = clamp(dot(aged, vec3(0.3333)) / silverLuma, 0.0, 1.15);
-  // The longer you stay, the more the edges close in.
-  vec2 q = (vPlane - 0.5) * 2.0;
-  float rim = smoothstep(0.35, 1.25, length(q));
-  float closing = 1.0 - rim * hold * 0.6;
-  gl_FragColor = vec4(room * color * silver * closing, 1.0);
+  // The longer you stay, the more the mist closes in.
+  vec3 seen = mistOver(room * color * silver, vPlane, hold, manorTime);
+  gl_FragColor = vec4(seen, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
 }
@@ -67,6 +69,8 @@ void main() {
 
 export type Mirror = {
   reflector: Reflector
+  // The reflector's own material: its uniforms hold the last reflection.
+  surface: ShaderMaterial
   glass: MeshStandardMaterial
   geometry: PlaneGeometry
   hold: IUniform<number>
@@ -91,6 +95,7 @@ export function createMirror(width: number, height: number): Mirror {
         foxing: { value: null },
         silverLuma: { value: silverLuma },
         hold: { value: 0 },
+        manorTime: { value: 0 },
       },
       vertexShader,
       fragmentShader,
@@ -105,6 +110,7 @@ export function createMirror(width: number, height: number): Mirror {
   // Set after the reflector clones its shader's uniforms, so these stay shared.
   material.uniforms.foxing = { value: foxing }
   material.uniforms.hold = hold
+  material.uniforms.manorTime = manorTime
   reflector.visible = false
   const glass = new MeshStandardMaterial({
     map: foxing,
@@ -113,6 +119,7 @@ export function createMirror(width: number, height: number): Mirror {
   })
   return {
     reflector,
+    surface: material,
     glass,
     geometry,
     hold,

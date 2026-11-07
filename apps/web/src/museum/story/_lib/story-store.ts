@@ -47,6 +47,18 @@ export type StoryLineId =
 // staying before the thirteenth frame (B).
 export type EndingId = "leave" | "stay"
 
+// The visitor the house kept (ending B), as the thirteenth frame hangs them
+// on every later visit: the night they stayed and the mirror's frozen photo.
+export type KeptPortrait = {
+  // The visitor's local date, « 2026-11-07 ».
+  night: string
+  // A small JPEG data URL; null when it could not be kept.
+  photo: string | null
+}
+
+// Keeps the saved visit well under the browser's storage limit.
+export const portraitPhotoMaxLength = 200_000
+
 export const workCount = collectionWorks.length
 
 const workIds: ReadonlySet<string> = new Set(
@@ -65,6 +77,7 @@ type SavedStory = {
   // Entries into the manor; from the second one on, the visitor is back.
   visits: number
   introFinished: boolean
+  portrait: KeptPortrait | null
 }
 
 type StoryState = SavedStory & {
@@ -96,10 +109,13 @@ type StoryState = SavedStory & {
   endVisit: () => void
   // Ending B: the visitor stayed before the thirteenth frame. Once a visit.
   stay: () => void
+  // The mirror froze into the kept visitor's portrait.
+  hangPortrait: (portrait: KeptPortrait) => void
   dismissContact: () => void
   finishIntro: () => void
   dismissObjective: () => void
-  // Forgets the whole visit, saved state included. Reload to replay the intro.
+  // Forgets the whole visit, saved state included (the kept portrait too).
+  // Reload to replay the intro.
   resetVisit: () => void
 }
 
@@ -125,6 +141,20 @@ export function hasGameStarted({
   return introFinished || visits > 1 || woken.length > 0
 }
 
+// After midnight, once the house has said all it had to say, the visitor
+// chooses: walk out of the open front door, or stay before the mirror. A
+// visitor already kept finds their portrait there, not a mirror.
+export function canChooseEnding({
+  midnight,
+  ending,
+  lineQueue,
+  portrait,
+}: Pick<StoryState, "midnight" | "ending" | "lineQueue" | "portrait">) {
+  return (
+    midnight && ending === null && lineQueue.length === 0 && portrait === null
+  )
+}
+
 const storageKey = "museum-story-v1"
 
 const freshStory = {
@@ -133,6 +163,7 @@ const freshStory = {
   midnight: false,
   visits: 0,
   introFinished: false,
+  portrait: null,
   lineQueue: [],
   linesSpoken: 0,
   whisperQueue: [],
@@ -153,11 +184,37 @@ type StoryActions = Pick<
   | "beginVisit"
   | "endVisit"
   | "stay"
+  | "hangPortrait"
   | "dismissContact"
   | "finishIntro"
   | "dismissObjective"
   | "resetVisit"
 >
+
+const nightPattern = /^\d{4}-\d{2}-\d{2}$/
+const photoPrefix = "data:image/jpeg;base64,"
+
+function readPortrait(saved: unknown): KeptPortrait | null {
+  if (
+    typeof saved !== "object" ||
+    saved === null ||
+    !("night" in saved) ||
+    typeof saved.night !== "string" ||
+    !nightPattern.test(saved.night)
+  ) {
+    return null
+  }
+  const photo = "photo" in saved ? saved.photo : null
+  return {
+    night: saved.night,
+    photo:
+      typeof photo === "string" &&
+      photo.startsWith(photoPrefix) &&
+      photo.length <= portraitPhotoMaxLength
+        ? photo
+        : null,
+  }
+}
 
 function wholeNumber(value: unknown, max: number) {
   return typeof value === "number" && Number.isInteger(value)
@@ -192,6 +249,7 @@ function readSaved(saved: unknown): Partial<SavedStory> {
       Number.MAX_SAFE_INTEGER
     ),
     introFinished: "introFinished" in saved && saved.introFinished === true,
+    portrait: readPortrait("portrait" in saved ? saved.portrait : null),
   }
 }
 
@@ -211,6 +269,7 @@ function save({
   midnight,
   visits,
   introFinished,
+  portrait,
 }: SavedStory) {
   const saved: SavedStory = {
     woken,
@@ -218,6 +277,7 @@ function save({
     midnight,
     visits,
     introFinished,
+    portrait,
   }
   try {
     localStorage.setItem(storageKey, JSON.stringify(saved))
@@ -321,6 +381,8 @@ export const useStoryStore = create<StoryState>()((set) => ({
     set((state) =>
       state.midnight && state.ending === null ? { ending: "stay" } : state
     ),
+  hangPortrait: (portrait) =>
+    set((state) => (state.ending === "stay" ? { portrait } : state)),
   dismissContact: () => set({ contactShown: false }),
   finishIntro: () =>
     set((state) =>
@@ -348,7 +410,8 @@ useStoryStore.subscribe((state, previous) => {
     state.whispered !== previous.whispered ||
     state.midnight !== previous.midnight ||
     state.visits !== previous.visits ||
-    state.introFinished !== previous.introFinished
+    state.introFinished !== previous.introFinished ||
+    state.portrait !== previous.portrait
   ) {
     save(state)
   }

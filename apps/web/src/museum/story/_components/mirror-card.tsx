@@ -4,7 +4,7 @@ import { useMidnightScene } from "@/museum/gallery/midnight/_lib/midnight-scene"
 import {
   emptyFrameCard,
   keptVisitorCard,
-  tonight,
+  nightName,
 } from "@/museum/gallery/midnight/_lib/thirteenth-frame"
 import { PaperPin } from "@/museum/player/_components/paper-pin"
 import { useStoryStore } from "@/museum/story/_lib/story-store"
@@ -77,15 +77,16 @@ function CardText({ card, isWriting }: { card: Card; isWriting: boolean }) {
 }
 
 // The thirteenth frame's card. When the house keeps the visitor (ending B),
-// it rewrites itself: the empty frame is theirs now.
+// it rewrites itself: the empty frame is theirs now, and stays theirs on
+// every later visit.
 export function MirrorCard() {
   const isPlaying = useMuseumStore(
     (state) => state.phase === "gallery" && !state.isPaused
   )
   const isInView = useMidnightScene((state) => state.isMirrorInView)
   const isKept = useStoryStore((state) => state.ending === "stay")
+  const portrait = useStoryStore((state) => state.portrait)
   const isStill = useReducedMotion()
-  const [night] = useState(tonight)
   const isVisible = isPlaying && (isInView || isKept)
 
   return (
@@ -102,11 +103,11 @@ export function MirrorCard() {
       >
         <PaperPin className="left-2" />
         <PaperPin className="right-2" />
-        {isKept ? (
+        {portrait ? (
           <CardText
-            key="kept"
-            card={keptVisitorCard(night)}
-            isWriting={!isStill}
+            key={`kept-${portrait.night}`}
+            card={keptVisitorCard(nightName(portrait.night))}
+            isWriting={isKept && !isStill}
           />
         ) : (
           <CardText key="empty" card={emptyFrameCard} isWriting={false} />

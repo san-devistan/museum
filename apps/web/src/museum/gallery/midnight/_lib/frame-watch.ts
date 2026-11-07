@@ -11,6 +11,14 @@ import {
   type VeilUniforms,
 } from "@/museum/gallery/artwork/_lib/veil-material"
 import { setVeilFall } from "@/museum/gallery/artwork/_lib/veil-motion"
+import {
+  createFramePortrait,
+  disposeFramePortrait,
+  freezePortrait,
+  hangKeptPortrait,
+  settlePortrait,
+  type FramePortrait,
+} from "@/museum/gallery/midnight/_lib/frame-portrait"
 import { setMirrorInView } from "@/museum/gallery/midnight/_lib/midnight-scene"
 import { keepVisitor } from "@/museum/gallery/midnight/_lib/midnight-sequence"
 import {
@@ -18,26 +26,35 @@ import {
   type Mirror,
 } from "@/museum/gallery/midnight/_lib/mirror"
 import {
+  bakePortrait,
+  keptPhoto,
+} from "@/museum/gallery/midnight/_lib/portrait-bake"
+import {
   framePlacement,
   isFacingFrame,
+  nightKey,
   thirteenthFrame,
 } from "@/museum/gallery/midnight/_lib/thirteenth-frame"
-import { useStoryStore } from "@/museum/story/_lib/story-store"
+import { canChooseEnding, useStoryStore } from "@/museum/story/_lib/story-store"
 import {
   MathUtils,
   Vector2,
+  Vector3,
   Vector4,
   type BufferGeometry,
   type Camera,
   type Group,
   type Mesh,
   type ShaderMaterial,
+  type WebGLRenderer,
 } from "three"
 
 // What the thirteenth frame does each frame: its veil falls under the
 // visitor's gaze and pools at the wall's foot, its mirror reflects only
 // while it can be seen, its card shows while the visitor faces it, and
-// standing there long enough after midnight is ending B.
+// standing there long enough after midnight is ending B: the mist closes in
+// as they stay, and the mirror freezes into their portrait, which it hangs
+// from then on.
 
 // Looked at from this close, within this cone, the veil falls.
 const unveil = {
@@ -51,7 +68,8 @@ const facing = { reach: 4.2, cone: Math.cos(MathUtils.degToRad(34)) }
 const stayAfter = 8
 const fallDuration = 2.4
 const glowDamping = 1.8
-const holdDamping = 1.2
+// Quick, so the mist keeps pace with the time stayed.
+const holdDamping = 6
 const stirDamping = 2.2
 const openingCornerRatio = 0.06
 
@@ -64,6 +82,7 @@ type Veil = {
 export type FrameParts = {
   mirror: Mirror
   veil: Veil
+  portrait: FramePortrait
   gaze: number
   // 0 hanging, 1 pooled on the floor.
   fall: number
@@ -80,6 +99,7 @@ export type FrameMeshes = {
 // Reused every frame (no allocation): the component fills it in.
 export type FrameStep = {
   camera: Camera | null
+  renderer: WebGLRenderer | null
   delta: number
   isStill: boolean
 }
@@ -126,6 +146,7 @@ export function createFrameParts(): FrameParts {
   return {
     mirror,
     veil: createVeil(mirror),
+    portrait: createFramePortrait(),
     gaze: 0,
     fall: 0,
     isFalling: false,
@@ -136,6 +157,7 @@ export function createFrameParts(): FrameParts {
 export function disposeFrameParts(parts: FrameParts) {
   parts.mirror.dispose()
   parts.veil.material.dispose()
+  disposeFramePortrait(parts.portrait)
   setMirrorInView(false)
 }
 
@@ -166,16 +188,44 @@ function dropVeil(parts: FrameParts, isLooking: boolean, step: FrameStep) {
   )
 }
 
+const eye = new Vector3()
+
+// The mirror freezes on what it last showed, the visitor in it at last.
+function takePortrait(
+  parts: FrameParts,
+  group: Group,
+  camera: Camera,
+  step: FrameStep
+) {
+  camera.getWorldPosition(eye)
+  const eyeHeight = eye.y
+  group.worldToLocal(eye)
+  const print = step.renderer
+    ? bakePortrait(step.renderer, camera, parts.mirror, {
+        x: eye.x,
+        y: eye.y,
+        eyeHeight,
+      })
+    : null
+  const portrait = {
+    night: nightKey(new Date()),
+    photo: print ? keptPhoto(print) : null,
+  }
+  if (print) {
+    freezePortrait(parts.portrait, portrait, print, step.isStill)
+  } else {
+    hangKeptPortrait(parts.portrait, portrait)
+  }
+  useStoryStore.getState().hangPortrait(portrait)
+}
+
 // Ending B: stand before it about eight seconds once the house has said all
-// it had to say. The mirror's edges close in as the visitor stays.
+// it had to say. The mist closes in as the visitor stays, and clears again
+// if they look away or walk off. True once they have stayed long enough.
 function watchStay(parts: FrameParts, isFacing: boolean, step: FrameStep) {
   const dt = Math.min(step.delta, 0.1)
   const story = useStoryStore.getState()
-  const canStay =
-    isFacing &&
-    story.midnight &&
-    story.ending === null &&
-    story.lineQueue.length === 0
+  const canStay = isFacing && canChooseEnding(story)
   parts.dwell = canStay ? parts.dwell + dt : Math.max(0, parts.dwell - dt * 2)
   const hold = story.ending === "stay" ? 1 : parts.dwell / stayAfter
   parts.mirror.hold.value = MathUtils.damp(
@@ -184,10 +234,23 @@ function watchStay(parts: FrameParts, isFacing: boolean, step: FrameStep) {
     holdDamping,
     dt
   )
-  if (parts.dwell >= stayAfter) {
-    parts.dwell = 0
-    keepVisitor(step.isStill)
+  if (parts.dwell < stayAfter) {
+    return false
   }
+  parts.dwell = 0
+  return true
+}
+
+// The glass shows the kept portrait once it is painted, and the veil drapes
+// over it instead of the foxed silver.
+function showPortrait(parts: FrameParts, glass: Mesh, step: FrameStep) {
+  const { portrait, mirror, veil } = parts
+  const surface = portrait.isPainted ? portrait.material : mirror.glass
+  if (glass.material !== surface) {
+    glass.material = surface
+    veil.uniforms.photo.value = surface.map
+  }
+  settlePortrait(portrait, step.delta)
 }
 
 export function watchFrame(
@@ -212,10 +275,12 @@ export function watchFrame(
     veil.frustumCulled = parts.fall === 0
   }
 
-  // The reflection is a second render of the scene: only while it shows.
-  const isReflecting = isHere && parts.isFalling
+  // The reflection is a second render of the scene: only while it shows,
+  // and never again once the mirror has become a portrait.
+  const isReflecting = isHere && parts.isFalling && parts.portrait.hung === null
   parts.mirror.reflector.visible = isReflecting
   glass.visible = !isReflecting
+  showPortrait(parts, glass, step)
 
   const isFacing =
     parts.fall >= 1 &&
@@ -223,5 +288,8 @@ export function watchFrame(
     !museum.isPaused &&
     isFacingFrame(camera, facing.reach, facing.cone)
   setMirrorInView(isFacing)
-  watchStay(parts, isFacing, step)
+  if (watchStay(parts, isFacing, step)) {
+    keepVisitor(step.isStill)
+    takePortrait(parts, group, camera, step)
+  }
 }
